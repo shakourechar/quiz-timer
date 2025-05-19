@@ -3,102 +3,105 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Quiz Timestamp Tracker</title>
+<title>Quiz Timer Controller</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: #ecf0f1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+  }
+  #status {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+  }
+  button {
+    background: #1abc9c;
+    border: none;
+    border-radius: 6px;
+    color: #2c3e50;
+    font-weight: bold;
+    font-size: 1.2rem;
+    padding: 0.8rem 1.4rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  button:hover {
+    background: #16a085;
+  }
+</style>
 </head>
 <body>
 
-<h2 id="question">Question text will appear here</h2>
-
-<form id="answer-form">
-  <label>
-    Your answer:
-    <input type="text" id="answer-input" required />
-  </label>
-  <button type="submit">Submit Answer</button>
-</form>
-
-<p id="elapsed-time"></p>
+<div id="status">Timer is stopped.</div>
+<button id="startQuestionBtn">Start Question Timer</button>
+<button id="stopQuestionBtn" disabled>Stop Question Timer & Get Elapsed</button>
+<button id="getTotalElapsedBtn">Get Total Elapsed Time (sec)</button>
 
 <script>
-(() => {
-  const endpointUrl = 'https://your-timestamp-endpoint.com/api/timestamp'; // replace with your real API URL
-  let questionStartTime = null;
+// Timer module exposed on window.quizTimer for GPT interaction
+window.quizTimer = (() => {
+  let questionStart = null;
+  let totalElapsed = 0;
 
-  // Simulate showing question and starting timer
-  function displayQuestion(text) {
-    document.getElementById('question').textContent = text;
-    questionStartTime = new Date();
-    document.getElementById('elapsed-time').textContent = '';
-  }
+  return {
+    // Called when GPT displays a new question
+    startQuestionTimer: () => {
+      questionStart = performance.now();
+      document.getElementById('status').textContent = 'Question timer started.';
+    },
 
-  // Send timestamps to server
-  async function sendTimestamps(questionTime, answerTime) {
-    try {
-      const payload = {
-        questionTimestamp: questionTime.toISOString(),
-        answerTimestamp: answerTime.toISOString()
-      };
-
-      const response = await fetch(endpointUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        throw new Error('Network response not ok');
+    // Called when user submits answer
+    stopQuestionTimer: () => {
+      if (!questionStart) {
+        console.warn('Question timer was not started.');
+        return 0;
       }
+      const elapsed = performance.now() - questionStart;
+      totalElapsed += elapsed;
+      questionStart = null;
+      const elapsedSec = Math.floor(elapsed / 1000);
+      document.getElementById('status').textContent = `Question answered in ${elapsedSec} seconds.`;
+      return elapsedSec;
+    },
 
-      const data = await response.json();
-      return data; // Expecting something like { serverTimestamp: '...' }
-    } catch (error) {
-      console.error('Error sending timestamps:', error);
-      return null;
+    // Returns total elapsed quiz time in seconds
+    getTotalElapsedSeconds: () => {
+      return Math.floor(totalElapsed / 1000);
+    },
+
+    // Resets all timers (if needed)
+    resetTimers: () => {
+      questionStart = null;
+      totalElapsed = 0;
+      document.getElementById('status').textContent = 'Timer reset.';
     }
-  }
-
-  // Calculate and display elapsed time
-  function displayElapsedTime(questionTime, answerTime) {
-    const diffMs = answerTime - questionTime; // ms difference
-    const seconds = Math.floor(diffMs / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    document.getElementById('elapsed-time').textContent =
-      `You took ${minutes} minute(s) and ${remainingSeconds} second(s) to answer.`;
-  }
-
-  // Event listener for form submit
-  document.getElementById('answer-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    if (!questionStartTime) {
-      alert('Question start time not recorded.');
-      return;
-    }
-
-    const answerTime = new Date();
-    const userAnswer = document.getElementById('answer-input').value;
-
-    // Send timestamps
-    const serverResponse = await sendTimestamps(questionStartTime, answerTime);
-
-    // Show elapsed time locally (regardless of server response)
-    displayElapsedTime(questionStartTime, answerTime);
-
-    // Optionally handle server response (e.g., display server time)
-    if (serverResponse && serverResponse.serverTimestamp) {
-      console.log('Server timestamp:', serverResponse.serverTimestamp);
-    }
-
-    // Clear input for next question
-    document.getElementById('answer-input').value = '';
-
-    // TODO: load next question here or notify Custom GPT to proceed
-  });
-
-  // Initialize with first question example
-  displayQuestion('What percentage of your income do you save each month?');
+  };
 })();
+
+// UI buttons for manual testing (not required for GPT integration)
+document.getElementById('startQuestionBtn').addEventListener('click', () => {
+  window.quizTimer.startQuestionTimer();
+  document.getElementById('startQuestionBtn').disabled = true;
+  document.getElementById('stopQuestionBtn').disabled = false;
+});
+
+document.getElementById('stopQuestionBtn').addEventListener('click', () => {
+  const elapsed = window.quizTimer.stopQuestionTimer();
+  alert(`Elapsed time for question: ${elapsed} seconds.`);
+  document.getElementById('startQuestionBtn').disabled = false;
+  document.getElementById('stopQuestionBtn').disabled = true;
+});
+
+document.getElementById('getTotalElapsedBtn').addEventListener('click', () => {
+  const total = window.quizTimer.getTotalElapsedSeconds();
+  alert(`Total elapsed quiz time: ${total} seconds.`);
+});
 </script>
 
 </body>
