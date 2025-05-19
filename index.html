@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quiz Timestamp Tracker</title>
+</head>
+<body>
+
+<h2 id="question">Question text will appear here</h2>
+
+<form id="answer-form">
+  <label>
+    Your answer:
+    <input type="text" id="answer-input" required />
+  </label>
+  <button type="submit">Submit Answer</button>
+</form>
+
+<p id="elapsed-time"></p>
+
+<script>
+(() => {
+  const endpointUrl = 'https://your-timestamp-endpoint.com/api/timestamp'; // replace with your real API URL
+  let questionStartTime = null;
+
+  // Simulate showing question and starting timer
+  function displayQuestion(text) {
+    document.getElementById('question').textContent = text;
+    questionStartTime = new Date();
+    document.getElementById('elapsed-time').textContent = '';
+  }
+
+  // Send timestamps to server
+  async function sendTimestamps(questionTime, answerTime) {
+    try {
+      const payload = {
+        questionTimestamp: questionTime.toISOString(),
+        answerTimestamp: answerTime.toISOString()
+      };
+
+      const response = await fetch(endpointUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response not ok');
+      }
+
+      const data = await response.json();
+      return data; // Expecting something like { serverTimestamp: '...' }
+    } catch (error) {
+      console.error('Error sending timestamps:', error);
+      return null;
+    }
+  }
+
+  // Calculate and display elapsed time
+  function displayElapsedTime(questionTime, answerTime) {
+    const diffMs = answerTime - questionTime; // ms difference
+    const seconds = Math.floor(diffMs / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    document.getElementById('elapsed-time').textContent =
+      `You took ${minutes} minute(s) and ${remainingSeconds} second(s) to answer.`;
+  }
+
+  // Event listener for form submit
+  document.getElementById('answer-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!questionStartTime) {
+      alert('Question start time not recorded.');
+      return;
+    }
+
+    const answerTime = new Date();
+    const userAnswer = document.getElementById('answer-input').value;
+
+    // Send timestamps
+    const serverResponse = await sendTimestamps(questionStartTime, answerTime);
+
+    // Show elapsed time locally (regardless of server response)
+    displayElapsedTime(questionStartTime, answerTime);
+
+    // Optionally handle server response (e.g., display server time)
+    if (serverResponse && serverResponse.serverTimestamp) {
+      console.log('Server timestamp:', serverResponse.serverTimestamp);
+    }
+
+    // Clear input for next question
+    document.getElementById('answer-input').value = '';
+
+    // TODO: load next question here or notify Custom GPT to proceed
+  });
+
+  // Initialize with first question example
+  displayQuestion('What percentage of your income do you save each month?');
+})();
+</script>
+
+</body>
+</html>
